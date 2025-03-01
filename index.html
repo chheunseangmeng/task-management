@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seav Meng</title>
+    <title>Task Manager</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.1/gsap.min.js"></script> <!-- GSAP library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.1/gsap.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Poppins', sans-serif; text-align: center; margin: 20px; background: #f8f9fa; }
@@ -21,7 +21,7 @@
         .cancel-btn { background: #f44336; color: white; }
         .add-task-btn { background: #008CBA; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; }
 
-        /* Style for the animated text */
+        /* Gradient Animated Text */
         #task-heading {
             font-size: 36px;
             font-weight: bold;
@@ -29,20 +29,53 @@
             background-size: 800% 800%;
             color: transparent;
             -webkit-background-clip: text;
-            animation: gradient-text 10s ease infinite;
+            animation: gradient-text 5s ease infinite;
         }
 
-        /* Gradient text animation */
         @keyframes gradient-text {
-            0% {
-                background-position: 0% 50%;
-            }
-            50% {
-                background-position: 100% 50%;
-            }
-            100% {
-                background-position: 0% 50%;
-            }
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Light green background when task is done */
+        .done-card {
+            background-color: lightgreen;
+        }
+
+        /* White background for the Done button when task is completed */
+        .done-btn-completed {
+            background-color: white;
+            color: #4CAF50; /* Green text for the completed task */
+        }
+        
+        /* New container for completed tasks */
+        .completed-task-container {
+            display: flex;
+            flex-direction: column;  /* Stack title and task cards vertically */
+            align-items: center;     /* Center everything horizontally */
+            margin-top: 40px;
+        }
+
+        /* Centered title for Completed Tasks */
+        #completed-heading {
+            font-size: 36px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        /* Flexbox for task cards (children) */
+        .task-container {
+            display: flex;
+            flex-direction: row;     /* Align the cards horizontally */
+            gap: 15px;               /* Space between the task cards */
+            justify-content: center; /* Center the cards horizontally */
+            flex-wrap: wrap;         /* Allow wrapping of cards if necessary */
+        }
+        .task-card strong{
+            color: rgb(0, 182, 0);
         }
     </style>
 </head>
@@ -50,38 +83,56 @@
     <div id="app">
         <h1 id="task-heading">Enjoy ur task Seav Mengzz</h1>
         <button class="add-task-btn" @click="addTask">Add Task</button>
+        
+        <!-- Task Cards -->
         <div class="task-container">
-            <div class="task-card" v-for="(task, index) in tasks" :key="index">
-                <h3 contenteditable="true" @input="updateTitle($event, index)">{{ task.title }}</h3>
-                <p contenteditable="true" @input="updateDescription($event, index)" :class="{ done: task.completed }">{{ task.description }}</p>
+            <div class="task-card" v-for="(task, index) in tasks" :key="index" :class="{'done-card': task.completed}">
+                <h3 contenteditable="true" @blur="updateTitle($event, index)">{{ task.title }}</h3>
+                <p contenteditable="true" @blur="updateDescription($event, index)" :class="{ done: task.completed }">{{ task.description }}</p>
                 
                 <div v-if="!task.deadline">
-                    <input type="date" v-model="task.deadline" @change="formatDate(index)" />
+                    <input type="date" v-model="task.deadline" />
                 </div>
                 <p v-else>{{ formatDate(task.deadline) }}</p>
 
                 <div class="button-group">
-                    <button class="done-btn" @click="markDone(index)">Done</button>
-                    <button class="cancel-btn" @click="deleteTask(index)">Cancel</button>
+                    <button class="done-btn" 
+                            @click="markDone(index)" 
+                            :class="{'done-btn-completed': task.completed}">
+                        Done
+                    </button>
+                    <button class="cancel-btn" @click="deleteTask(index)">Delete</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Completed Tasks Container -->
+        <div class="completed-task-container" v-if="completedTasks.length > 0">
+            <h2 id="completed-heading">Completed Tasks</h2>
+            <div class="task-container">
+                <div class="task-card" v-for="(task, index) in completedTasks" :key="'completed-' + index">
+                    <h3>{{ task.title }}</h3>
+                    <p>{{ task.description }}</p>
+                    <p><strong>Successfully Done!</strong></p>
                 </div>
             </div>
         </div>
     </div>
-    
+
     <script>
         const app = Vue.createApp({
             data() {
                 return {
-                    tasks: JSON.parse(localStorage.getItem('tasks')) || [] // Load tasks from localStorage on page load
+                    tasks: JSON.parse(localStorage.getItem('tasks')) || [],
+                    completedTasks: []
                 };
             },
             watch: {
                 tasks: {
                     handler() {
-                        // Save tasks to localStorage whenever the tasks array is updated
                         localStorage.setItem('tasks', JSON.stringify(this.tasks));
                     },
-                    deep: true // This ensures that nested changes (e.g., editing a task) are also tracked
+                    deep: true
                 }
             },
             methods: {
@@ -89,17 +140,19 @@
                     this.tasks.push({ title: 'New Task', description: 'Task description here...', deadline: '', completed: false });
                 },
                 markDone(index) {
-                    this.tasks[index].completed = !this.tasks[index].completed;
+                    const task = this.tasks[index];
+                    task.completed = true;
+                    this.completedTasks.push(task);  // Move the task to completedTasks
+                    this.tasks.splice(index, 1);  // Remove from the active tasks list
                 },
                 deleteTask(index) {
-                    // Remove task from both Vue array and localStorage
                     this.tasks.splice(index, 1);
                 },
                 updateTitle(event, index) {
-                    this.tasks[index].title = event.target.innerText;
+                    this.tasks[index].title = event.target.innerText.trim();
                 },
                 updateDescription(event, index) {
-                    this.tasks[index].description = event.target.innerText;
+                    this.tasks[index].description = event.target.innerText.trim();
                 },
                 formatDate(date) {
                     if (!date) return '';
@@ -107,10 +160,11 @@
                     const day = taskDate.getDate();
                     const month = taskDate.toLocaleString('default', { month: 'long' });
                     const year = taskDate.getFullYear();
-                    return `${day}, ${month}, ${year}`;
+                    return `${day} ${month}, ${year}`;
                 }
             }
         });
+
         app.mount('#app');
     </script>
 </body>
